@@ -21,8 +21,9 @@ Table of contents
     * [How it works](#how-it-works)
   * [Usage](#usage)
     * [Install](#install)
+      * [Requirements](#requirements)
       * [With Gradle / Android Studio](#with-gradle--android-studio)
-      * [With Eclipse](#with-eclipse)
+      * [Migration from 1.x to 2.x](#migration-from-1x-to-2x)
     * [Reading the ANRError exception report](#reading-the-anrerror-exception-report)
     * [Configuration](#configuration)
       * [Timeout (minimum hanging time for an ANR)](#timeout-minimum-hanging-time-for-an-anr)
@@ -82,12 +83,17 @@ Usage
 Install
 -------
 
+### Requirements
+
+- **Minimum SDK:** 16 (Android 4.1)
+- **Java:** 11 or higher
+
 ### With Gradle / Android Studio
 
 1.  In the `app/build.gradle` file, add:
 
-    ```
-    implementation 'com.github.anrwatchdog:anrwatchdog:1.4.0'
+    ```groovy
+    implementation 'com.github.anrwatchdog:anrwatchdog:2.0.0'
     ```
 
 2.  In your application class, in `onCreate`, add:
@@ -96,12 +102,12 @@ Install
     new ANRWatchDog().start();
     ```
 
+### Migration from 1.x to 2.x
 
-### With Eclipse
+If upgrading from version 1.x:
 
-1. [Download the latest jar](https://search.maven.org/remote_content?g=com.github.anrwatchdog&a=anrwatchdog&v=LATEST)
-
-2. Put the jar in the `libs/` directory of your project
+- **minSdk** increased from 14 to 16. If your app supports Android 4.0 (API 14-15), you'll need to raise your minSdk or stay on version 1.4.0.
+- No API changes - existing code should work without modifications.
 
 
 Reading the ANRError exception report

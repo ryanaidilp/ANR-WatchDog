@@ -1,0 +1,97 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (without v prefix)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run tests
+        run: ./gradlew :anr-watchdog:testDebugUnitTest
+
+      - name: Build release AAR
+        run: ./gradlew :anr-watchdog:assembleRelease
+
+      - name: Build release sources JAR
+        run: ./gradlew :anr-watchdog:androidSourcesJar || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## ANR-WatchDog ${{ steps.version.outputs.tag }}
+
+            ### Installation
+
+            **JitPack (Recommended)**
+            ```kotlin
+            // In settings.gradle.kts
+            dependencyResolutionManagement {
+                repositories {
+                    maven { url = uri("https://jitpack.io") }
+                }
+            }
+
+            // In app/build.gradle.kts
+            dependencies {
+                implementation("com.github.ryanaidilp:ANR-WatchDog:${{ steps.version.outputs.tag }}")
+            }
+            ```
+
+            See [CHANGELOG.md](https://github.com/ryanaidilp/ANR-WatchDog/blob/master/CHANGELOG.md) for details.
+          files: |
+            anr-watchdog/build/outputs/aar/anr-watchdog-release.aar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger JitPack build
+        run: |
+          curl -s "https://jitpack.io/api/builds/com.github.ryanaidilp/ANR-WatchDog/${{ steps.version.outputs.tag }}" || true

@@ -1,7 +1,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.anrwatchdog/anrwatchdog.svg)](https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.github.anrwatchdog%22)
+[![CI](https://github.com/ryanaidilp/ANR-WatchDog/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanaidilp/ANR-WatchDog/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/github/license/salomonbrys/ANR-WatchDog.svg)](https://github.com/SalomonBrys/ANR-WatchDog/blob/master/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/SalomonBrys/ANR-WatchDog.svg)](https://github.com/SalomonBrys/ANR-WatchDog/issues)
-[![Donate](https://img.shields.io/badge/Backing-Donate-orange.svg)](https://donorbox.org/donation-salomonbrys/)
 
 
 ANR-WatchDog

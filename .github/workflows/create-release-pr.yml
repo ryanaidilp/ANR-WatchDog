@@ -34,6 +34,15 @@ jobs:
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create labels if they don't exist
+          gh label create "release" --description "Release PR" --color "0E8A16" 2>/dev/null || true
+          gh label create "hotfix" --description "Hotfix PR" --color "D93F0B" 2>/dev/null || true
+          gh label create "automated" --description "Automated PR" --color "1D76DB" 2>/dev/null || true
+
       - name: Create PR to master
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,11 +81,19 @@ jobs:
             - Changes will be back-merged to develop"
           fi
 
+          if [[ "${{ steps.branch_info.outputs.is_release }}" == "true" ]]; then
+            LABEL="release"
+          else
+            LABEL="hotfix"
+          fi
+
           gh pr create \
             --base master \
             --head "$BRANCH_NAME" \
             --title "$TITLE" \
-            --body "$BODY"
+            --body "$BODY" \
+            --label "automated" \
+            --label "$LABEL"
 
   trigger-bump-version:
     name: Trigger version bump

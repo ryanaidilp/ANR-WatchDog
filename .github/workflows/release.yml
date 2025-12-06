@@ -1,150 +1,219 @@
-name: Release
+name: Release Workflow - Tag, Release & Back-merge
 
 on:
   pull_request:
-    types:
-      - closed
-    branches:
-      - master
+    branches: [master]
+    types: [closed]
 
-  push:
-    tags:
-      - 'v*'
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
 
 jobs:
-  # Triggered when release/hotfix PR is merged to master
-  create-release:
-    name: Create Release
-    if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.merged == true &&
-      (startsWith(github.event.pull_request.head.ref, 'release/') ||
-       startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+  release-process:
+    if: github.event.pull_request.merged == true && (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/'))
     runs-on: ubuntu-latest
-
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-
     steps:
-      - name: Checkout code
+      - name: Checkout master branch
         uses: actions/checkout@v4
         with:
+          ref: master
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get version from branch
-        id: version
+      - name: Configure Git
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          if [[ "$BRANCH" == release/* ]]; then
-            VERSION="${BRANCH#release/}"
-          elif [[ "$BRANCH" == hotfix/* ]]; then
-            VERSION="${BRANCH#hotfix/}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION"
-
-      - name: Create and push tag
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git tag -a "v$VERSION" -m "Release v$VERSION"
+      - name: Extract version from branch name
+        id: version
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          if [[ $BRANCH_NAME == release/* ]]; then
+            VERSION=$(echo $BRANCH_NAME | sed 's/release\///')
+            TYPE="release"
+            BASE_BRANCH="develop"
+          elif [[ $BRANCH_NAME == hotfix/* ]]; then
+            VERSION=$(echo $BRANCH_NAME | sed 's/hotfix\///')
+            TYPE="hotfix"
+            BASE_BRANCH="develop"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "type=$TYPE" >> $GITHUB_OUTPUT
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if git tag -l | grep -q "^v${VERSION}$"; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️  Tag v$VERSION already exists"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag v$VERSION does not exist, will create"
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TYPE="${{ steps.version.outputs.type }}"
+
+          # Create annotated tag
+          git tag -a "v$VERSION" -m "$TYPE: v$VERSION"
+
+          # Push tag
           git push origin "v$VERSION"
 
-  # Triggered when tag is pushed (either manually or by create-release job)
-  build-and-publish:
-    name: Build and Publish
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+          echo "✅ Created and pushed tag v$VERSION"
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Run tests
-        run: ./gradlew :anr-watchdog:testDebugUnitTest
-
-      - name: Build release AAR
-        run: ./gradlew :anr-watchdog:assembleRelease
-
-      - name: Build release sources JAR
-        run: ./gradlew :anr-watchdog:androidSourcesJar || true
-
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: Release ${{ github.ref_name }}
-          body: |
-            ## ANR-WatchDog ${{ github.ref_name }}
-
-            ### Installation
-
-            **JitPack (Recommended)**
-            ```groovy
-            // In settings.gradle.kts
-            dependencyResolutionManagement {
-                repositories {
-                    maven { url = uri("https://jitpack.io") }
-                }
-            }
-
-            // In app/build.gradle.kts
-            dependencies {
-                implementation("com.github.ryanaidilp:ANR-WatchDog:${{ github.ref_name }}")
-            }
-            ```
-
-            See [CHANGELOG.md](https://github.com/ryanaidilp/ANR-WatchDog/blob/master/CHANGELOG.md) for details.
-          files: |
-            anr-watchdog/build/outputs/aar/anr-watchdog-release.aar
-          draft: false
-          prerelease: false
+      - name: Trigger publish workflow
+        if: steps.check_tag.outputs.tag_exists == 'false'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Trigger JitPack build
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -s "https://jitpack.io/api/builds/com.github.ryanaidilp/ANR-WatchDog/${{ github.ref_name }}" || true
+          VERSION="${{ steps.version.outputs.version }}"
+          gh workflow run publish-release.yml \
+            --repo ${{ github.repository }} \
+            -f version=$VERSION
 
-  # Trigger back-merge after release is created
-  trigger-back-merge:
-    name: Trigger Back-merge
-    needs: create-release
-    if: needs.create-release.outputs.version != ''
-    uses: ./.github/workflows/back-merge.yml
-    with:
-      version: ${{ needs.create-release.outputs.version }}
-    secrets: inherit
+          echo "✅ Triggered publish workflow for v$VERSION"
 
-  # Delete merged release/hotfix branch
-  cleanup:
-    name: Cleanup Branch
-    needs: create-release
-    if: needs.create-release.outputs.version != ''
-    runs-on: ubuntu-latest
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create labels if they don't exist
+          gh label create "automated" --description "Automated PR" --color "0E8A16" 2>/dev/null || true
+          gh label create "back-merge" --description "Back-merge PR" --color "1D76DB" 2>/dev/null || true
+          gh label create "needs-review" --description "Needs manual review" --color "D93F0B" 2>/dev/null || true
 
-    steps:
+      - name: Create back-merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TYPE="${{ steps.version.outputs.type }}"
+          BASE_BRANCH="${{ steps.version.outputs.base_branch }}"
+
+          # Create back-merge branch
+          BACKMERGE_BRANCH="backmerge/${TYPE}-${VERSION}-to-${BASE_BRANCH}"
+
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --base "$BASE_BRANCH" --head "$BACKMERGE_BRANCH" --state open --json number --jq '.[0].number' || echo "")
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "⚠️ PR already exists: #$EXISTING_PR"
+            echo "Skipping PR creation"
+            exit 0
+          fi
+
+          # Check if branch already exists
+          if git ls-remote --heads origin "$BACKMERGE_BRANCH" | grep -q "$BACKMERGE_BRANCH"; then
+            echo "⚠️ Back-merge branch already exists, skipping"
+            exit 0
+          fi
+
+          # Checkout base branch and create back-merge branch
+          git fetch origin "$BASE_BRANCH"
+          git checkout -b "$BACKMERGE_BRANCH" "origin/$BASE_BRANCH"
+
+          # Try to merge master into back-merge branch
+          if git merge master --no-edit -m "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH}"; then
+            echo "✅ Merge successful, no conflicts"
+            HAS_CONFLICTS=false
+          else
+            echo "⚠️ Merge conflicts detected"
+            HAS_CONFLICTS=true
+            # Stage all files including conflicts
+            git add -A
+            # Commit with conflict markers
+            git commit -m "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH} (with conflicts)" || true
+          fi
+
+          # Push back-merge branch
+          git push origin "$BACKMERGE_BRANCH"
+
+          # Create PR with appropriate message
+          if [ "$HAS_CONFLICTS" = "true" ]; then
+            PR_BODY="## Back-merge ${TYPE} v${VERSION}
+
+          This PR merges the changes from the ${TYPE} v${VERSION} back to the ${BASE_BRANCH} branch.
+
+          ### ⚠️ Conflicts Detected
+
+          This merge has conflicts that need to be resolved manually.
+
+          ### Changes
+          - ${TYPE} v${VERSION} has been merged to master
+          - Tag v${VERSION} has been created
+          - This PR syncs ${BASE_BRANCH} with the released changes
+
+          ### Steps to resolve:
+          1. Check out this branch locally
+          2. Resolve merge conflicts
+          3. Commit the resolved changes
+          4. Push to this branch
+          5. Merge this PR"
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$BACKMERGE_BRANCH" \
+              --title "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH}" \
+              --body "$PR_BODY" \
+              --label "automated" \
+              --label "back-merge" \
+              --label "needs-review"
+          else
+            PR_BODY="## Back-merge ${TYPE} v${VERSION}
+
+          This PR merges the changes from the ${TYPE} v${VERSION} back to the ${BASE_BRANCH} branch.
+
+          ### Changes
+          - ${TYPE} v${VERSION} has been merged to master
+          - Tag v${VERSION} has been created
+          - This PR syncs ${BASE_BRANCH} with the released changes
+
+          ### Auto-merge
+          No conflicts detected. This PR can be merged automatically."
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$BACKMERGE_BRANCH" \
+              --title "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH}" \
+              --body "$PR_BODY" \
+              --label "automated" \
+              --label "back-merge"
+          fi
+
+          echo "✅ Created back-merge PR from master to $BASE_BRANCH"
+
       - name: Delete merged branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${{ github.event.pull_request.head.ref }}"
           gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" || true
+          echo "✅ Deleted merged branch: $BRANCH"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TYPE="${{ steps.version.outputs.type }}"
+          BASE_BRANCH="${{ steps.version.outputs.base_branch }}"
+
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: $TYPE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Back-merge**: master → $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Publish workflow triggered for v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "2. After build completes, GitHub release will be created" >> $GITHUB_STEP_SUMMARY
+          echo "3. Review and merge the back-merge PR to $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY

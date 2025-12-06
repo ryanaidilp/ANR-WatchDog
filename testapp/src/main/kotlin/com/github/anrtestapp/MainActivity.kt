@@ -17,7 +17,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val application = getApplication() as ANRWatchdogTestApplication
+        val application = application as ANRWatchdogTestApplication
 
         val minAnrDurationButton = findViewById<Button>(R.id.minAnrDuration)
         minAnrDurationButton.text = "${application.duration} seconds"
@@ -80,7 +80,6 @@ class MainActivity : Activity() {
         }
     }
 
-    @Suppress("ControlFlowWithEmptyBody")
     private fun infiniteLoop() {
         var i = 0
         while (true) {
@@ -101,7 +100,6 @@ class MainActivity : Activity() {
     private inner class LockerThread : Thread("APP: Locker") {
         override fun run() {
             synchronized(mutex) {
-                @Suppress("ControlFlowWithEmptyBody")
                 while (true) {
                     sleep()
                 }

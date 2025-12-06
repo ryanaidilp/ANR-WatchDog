@@ -25,6 +25,9 @@ Table of contents
       * [With Gradle / Android Studio](#with-gradle--android-studio)
       * [Migration from 1.x to 2.x](#migration-from-1x-to-2x)
     * [Reading the ANRError exception report](#reading-the-anrerror-exception-report)
+    * [Structured ANR Data](#structured-anr-data)
+      * [ANR Causes](#anr-causes)
+      * [Cross-Platform Integration (Flutter/React Native)](#cross-platform-integration-flutterreact-native)
     * [Configuration](#configuration)
       * [Timeout (minimum hanging time for an ANR)](#timeout-minimum-hanging-time-for-an-anr)
       * [Debugger](#debugger)
@@ -140,6 +143,83 @@ From this report, we can see that the stack traces of two threads. The first (th
 From there, if we looked at those two lines, we would surely understand the cause of the dead lock!
 
 Note that some crash reporting library (such as Crashlytics) report all thread stack traces at the time of an uncaught exception. In that case, having all threads in the same exception can be cumbersome. In such cases, simply use `setReportMainThreadOnly()`.
+
+
+Structured ANR Data
+-------------------
+
+Starting with version 2.0, ANR-WatchDog provides structured information about the ANR, including the detected cause. This makes it easier to analyze ANRs programmatically and integrate with cross-platform frameworks.
+
+### ANR Causes
+
+The `ANRError` now includes an `info` property of type `ANRInfo` that provides structured data about the ANR:
+
+```kotlin
+new ANRWatchDog().setANRListener { error ->
+    // Access structured ANR information
+    val cause = error.info.cause           // ANRCause enum
+    val description = error.info.causeDescription  // Human-readable description
+    val mainThread = error.info.mainThread // Main thread stack trace
+    val isDeadlock = error.info.isPotentialDeadlock
+
+    Log.e("ANR", "Cause: $cause - $description")
+}
+```
+
+The `ANRCause` enum identifies the type of ANR:
+
+| Cause | Description |
+|-------|-------------|
+| `BLOCKED_ON_LOCK` | Main thread is blocked waiting for a lock held by another thread |
+| `WAITING` | Main thread is in a waiting state (Object.wait, Thread.join, etc.) |
+| `LONG_COMPUTATION` | Main thread appears busy with a long computation |
+| `IO_ON_MAIN_THREAD` | File I/O operation detected on main thread |
+| `NETWORK_ON_MAIN_THREAD` | Network operation detected on main thread |
+| `DATABASE_ON_MAIN_THREAD` | Database operation detected on main thread |
+| `DEADLOCK` | Potential deadlock detected between threads |
+| `UNKNOWN` | Unable to determine the specific cause |
+
+### Cross-Platform Integration (Flutter/React Native)
+
+For cross-platform frameworks, `ANRError` provides methods to export data in easily parseable formats:
+
+```kotlin
+// Get as Map (useful for Flutter MethodChannel)
+val anrMap: Map<String, Any?> = error.toMap()
+
+// Get as JSON string
+val jsonString: String = error.toJsonString()
+
+// Get as pretty-printed JSON
+val prettyJson: String = error.toJsonStringPretty()
+```
+
+Example JSON output:
+
+```json
+{
+  "durationMs": 5000,
+  "timestamp": 1699123456789,
+  "cause": "NETWORK_ON_MAIN_THREAD",
+  "causeDescription": "Network operation detected on main thread at: java.net.Socket.connect",
+  "isPotentialDeadlock": false,
+  "mainThread": {
+    "name": "main",
+    "id": 1,
+    "state": "RUNNABLE",
+    "isMainThread": true,
+    "stackTrace": [...]
+  },
+  "blockingThread": null,
+  "allThreads": [...]
+}
+```
+
+This structured data makes it easy to:
+
+* Filter and categorize ANRs by cause in your analytics
+* Create Flutter/React Native plugins that expose ANR data to Dart/JavaScript
+* Build custom dashboards and alerting based on ANR types
 
 
 Configuration

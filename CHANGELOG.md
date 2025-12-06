@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1] - 2025-12-06
+
+### Changes
+
+#### Bug Fixes
+- fix: make signing conditional for JitPack compatibility
+
 ## [2.0.0] - 2025-12-7
 
 ### Changed

@@ -1,0 +1,96 @@
+name: Create Release PR
+
+on:
+  create:
+    branches:
+      - 'release/*'
+      - 'hotfix/*'
+
+jobs:
+  create-pr:
+    name: Create PR to master
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get branch info
+        id: branch_info
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          if [[ "$BRANCH_NAME" == release/* ]]; then
+            VERSION="${BRANCH_NAME#release/}"
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
+            VERSION="${BRANCH_NAME#hotfix/}"
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create PR to master
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="${{ steps.branch_info.outputs.branch_name }}"
+          VERSION="${{ steps.branch_info.outputs.version }}"
+
+          if [[ "${{ steps.branch_info.outputs.is_release }}" == "true" ]]; then
+            TITLE="release: v$VERSION"
+            BODY="## Release v$VERSION
+
+            This PR prepares the release of version $VERSION.
+
+            ### Checklist
+            - [ ] Version bumped in build.gradle.kts
+            - [ ] CHANGELOG.md updated
+            - [ ] All tests passing
+            - [ ] Documentation updated
+
+            ### After Merge
+            - A GitHub release will be created automatically
+            - JitPack will be triggered to build the new version
+            - Changes will be back-merged to develop"
+          else
+            TITLE="hotfix: v$VERSION"
+            BODY="## Hotfix v$VERSION
+
+            This PR contains hotfix changes for version $VERSION.
+
+            ### Changes
+            _Describe the hotfix changes here_
+
+            ### After Merge
+            - A GitHub release will be created automatically
+            - JitPack will be triggered to build the new version
+            - Changes will be back-merged to develop"
+          fi
+
+          gh pr create \
+            --base master \
+            --head "$BRANCH_NAME" \
+            --title "$TITLE" \
+            --body "$BODY"
+
+  trigger-bump-version:
+    name: Trigger version bump
+    needs: create-pr
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/bump-version.yml
+    with:
+      release_branch: ${{ github.ref_name }}
+    secrets: inherit
+
+  trigger-changelog:
+    name: Trigger changelog generation
+    needs: create-pr
+    uses: ./.github/workflows/generate-changelog.yml
+    with:
+      release_branch: ${{ github.ref_name }}
+    secrets: inherit

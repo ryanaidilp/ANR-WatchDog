@@ -6,6 +6,10 @@ on:
       - 'release/*'
       - 'hotfix/*'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   create-pr:
     name: Create PR to master
@@ -43,7 +47,22 @@ jobs:
           gh label create "hotfix" --description "Hotfix PR" --color "D93F0B" 2>/dev/null || true
           gh label create "automated" --description "Automated PR" --color "1D76DB" 2>/dev/null || true
 
+      - name: Check if PR already exists
+        id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="${{ steps.branch_info.outputs.branch_name }}"
+          EXISTING_PR=$(gh pr list --base master --head "$BRANCH_NAME" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$EXISTING_PR" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ PR #$EXISTING_PR already exists for $BRANCH_NAME"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create PR to master
+        if: steps.check_pr.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

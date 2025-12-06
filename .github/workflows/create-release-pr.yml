@@ -2,9 +2,6 @@ name: Create Release PR
 
 on:
   create:
-    branches:
-      - 'release/*'
-      - 'hotfix/*'
 
 permissions:
   contents: write
@@ -13,7 +10,10 @@ permissions:
 jobs:
   create-pr:
     name: Create PR to master
-    if: github.event.ref_type == 'branch'
+    # Only run for release/* or hotfix/* branches (create event doesn't support branches filter)
+    if: |
+      github.event.ref_type == 'branch' &&
+      (startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))
     runs-on: ubuntu-latest
 
     steps:

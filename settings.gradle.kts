@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ANR-WatchDog"
-include ':anr-watchdog', ':testapp'
+include(":anr-watchdog", ":testapp")

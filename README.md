@@ -93,10 +93,34 @@ Install
 
 ### With Gradle / Android Studio
 
-1.  In the `app/build.gradle` file, add:
+#### Option 1: JitPack (Recommended)
 
-    ```groovy
-    implementation 'com.github.anrwatchdog:anrwatchdog:2.0.0'
+1.  Add the JitPack repository to your `settings.gradle.kts`:
+
+    ```kotlin
+    dependencyResolutionManagement {
+        repositories {
+            maven { url = uri("https://jitpack.io") }
+        }
+    }
+    ```
+
+2.  Add the dependency to your `app/build.gradle.kts`:
+
+    ```kotlin
+    dependencies {
+        implementation("com.github.ryanaidilp:ANR-WatchDog:v2.0.0")
+    }
+    ```
+
+#### Option 2: Maven Central
+
+1.  In the `app/build.gradle.kts` file, add:
+
+    ```kotlin
+    dependencies {
+        implementation("com.github.anrwatchdog:anrwatchdog:2.0.0")
+    }
     ```
 
 2.  In your application class, in `onCreate`, add:

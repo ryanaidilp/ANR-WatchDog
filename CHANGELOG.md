@@ -20,12 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Structured ANR information** via new `ANRInfo` class
+  - `ANRCause` enum to identify the actual cause of ANR (BLOCKED_ON_LOCK, NETWORK_ON_MAIN_THREAD, IO_ON_MAIN_THREAD, etc.)
+  - `toMap()` method for easy data extraction (useful for Flutter/React Native plugins)
+  - `toJsonString()` and `toJsonStringPretty()` methods for JSON serialization
+  - Detailed thread stack trace information with `ThreadStackInfo` class
+  - Potential deadlock detection
 - GitHub Actions CI/CD pipeline
 - Dependabot for automated dependency updates
 - ProGuard consumer rules for R8/ProGuard compatibility
-- Unit tests for ANRError and ANRWatchDog classes
+- Unit tests for ANRError, ANRWatchDog, and ANRInfo classes
 - CHANGELOG.md file
 - CONTRIBUTING.md file
+- Kotlin support - library fully migrated to Kotlin while maintaining Java compatibility
 
 ### Removed
 

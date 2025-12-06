@@ -1,5 +1,6 @@
 package com.github.anrwatchdog
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -109,5 +110,67 @@ class ANRErrorTest {
         assertEquals(10000L, error2.duration)
         assertTrue(error1.message!!.contains("1000"))
         assertTrue(error2.message!!.contains("10000"))
+    }
+
+    @Test
+    fun `error contains ANRInfo`() {
+        val error = ANRError.createMainOnly(5000L)
+
+        assertNotNull(error.info)
+        assertEquals(5000L, error.info.durationMs)
+        assertNotNull(error.info.cause)
+        assertNotNull(error.info.mainThread)
+    }
+
+    @Test
+    fun `error toMap returns valid map`() {
+        val error = ANRError.createMainOnly(5000L)
+
+        val map = error.toMap()
+
+        assertTrue(map.containsKey("durationMs"))
+        assertTrue(map.containsKey("cause"))
+        assertTrue(map.containsKey("mainThread"))
+        assertEquals(5000L, map["durationMs"])
+    }
+
+    @Test
+    fun `error toJsonString returns valid JSON`() {
+        val error = ANRError.createMainOnly(5000L)
+
+        val jsonString = error.toJsonString()
+
+        // Should be parseable as JSON
+        val parsed = JSONObject(jsonString)
+        assertEquals(5000L, parsed.getLong("durationMs"))
+        assertNotNull(parsed.getString("cause"))
+    }
+
+    @Test
+    fun `error toJsonStringPretty returns formatted JSON`() {
+        val error = ANRError.createMainOnly(5000L)
+
+        val prettyJson = error.toJsonStringPretty()
+
+        // Pretty JSON should have newlines and indentation
+        assertTrue(prettyJson.contains("\n"))
+        assertTrue(prettyJson.contains("  "))
+    }
+
+    @Test
+    fun `error message contains cause information`() {
+        val error = ANRError.createMainOnly(5000L)
+
+        assertTrue(error.message!!.contains("CAUSE:"))
+    }
+
+    @Test
+    fun `create error has correct info with all threads`() {
+        val error = ANRError.create(5000L, "", false)
+
+        assertNotNull(error.info)
+        assertTrue(error.info.allThreads.isNotEmpty())
+        // Main thread should always be present
+        assertTrue(error.info.allThreads.any { it.isMainThread })
     }
 }

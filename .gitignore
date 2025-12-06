@@ -16,6 +16,8 @@
 # GRADLE
 .gradle
 /build/
-gradle.properties
 local.properties
 .gradletasknamecache
+
+
+.claude/

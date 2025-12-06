@@ -85,6 +85,15 @@ jobs:
 
           echo "✅ Triggered publish workflow for v$VERSION"
 
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create labels if they don't exist
+          gh label create "automated" --description "Automated PR" --color "0E8A16" 2>/dev/null || true
+          gh label create "back-merge" --description "Back-merge PR" --color "1D76DB" 2>/dev/null || true
+          gh label create "needs-review" --description "Needs manual review" --color "D93F0B" 2>/dev/null || true
+
       - name: Create back-merge PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -156,7 +165,10 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$BACKMERGE_BRANCH" \
               --title "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH}" \
-              --body "$PR_BODY"
+              --body "$PR_BODY" \
+              --label "automated" \
+              --label "back-merge" \
+              --label "needs-review"
           else
             PR_BODY="## Back-merge ${TYPE} v${VERSION}
 
@@ -173,7 +185,9 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$BACKMERGE_BRANCH" \
               --title "chore: back-merge ${TYPE} v${VERSION} to ${BASE_BRANCH}" \
-              --body "$PR_BODY"
+              --body "$PR_BODY" \
+              --label "automated" \
+              --label "back-merge"
           fi
 
           echo "✅ Created back-merge PR from master to $BASE_BRANCH"

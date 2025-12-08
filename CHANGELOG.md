@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.0] - 2025-12-08
+
+### Changes
+
+#### Bug Fixes
+- fix: resolve merge conflict in build.gradle.kts
+
+#### Other Changes
+- Merge pull request #13 from ryanaidilp/feature/remove-v-prefix-from-tags
+- ci: remove v prefix from version tags
+- Merge pull request #12 from ryanaidilp/backmerge/hotfix-2.0.1-to-develop
+- chore: back-merge hotfix v2.0.1 to develop (with conflicts)
+- Merge pull request #10 from ryanaidilp/backmerge/release-2.0.0-to-develop
+- chore: back-merge release v2.0.0 to develop
+- chore: bump version to 2.1.0-SNAPSHOT for next development
+
 ## [2.0.1] - 2025-12-06
 
 ### Changes

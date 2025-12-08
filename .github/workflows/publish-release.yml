@@ -3,12 +3,12 @@ name: Publish Release
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]*'
 
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (without v prefix)'
+        description: 'Version to release (e.g., 2.0.1)'
         required: true
         type: string
 
@@ -26,9 +26,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
           else
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            VERSION="${GITHUB_REF#refs/tags/}"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
           fi
@@ -55,9 +55,6 @@ jobs:
 
       - name: Build release AAR
         run: ./gradlew :anr-watchdog:assembleRelease
-
-      - name: Build release sources JAR
-        run: ./gradlew :anr-watchdog:androidSourcesJar || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

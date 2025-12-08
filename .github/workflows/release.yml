@@ -51,12 +51,12 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          if git tag -l | grep -q "^v${VERSION}$"; then
+          if git tag -l | grep -q "^${VERSION}$"; then
             echo "tag_exists=true" >> $GITHUB_OUTPUT
-            echo "⚠️  Tag v$VERSION already exists"
+            echo "⚠️  Tag $VERSION already exists"
           else
             echo "tag_exists=false" >> $GITHUB_OUTPUT
-            echo "✅ Tag v$VERSION does not exist, will create"
+            echo "✅ Tag $VERSION does not exist, will create"
           fi
 
       - name: Create and push tag
@@ -66,12 +66,12 @@ jobs:
           TYPE="${{ steps.version.outputs.type }}"
 
           # Create annotated tag
-          git tag -a "v$VERSION" -m "$TYPE: v$VERSION"
+          git tag -a "$VERSION" -m "$TYPE: $VERSION"
 
           # Push tag
-          git push origin "v$VERSION"
+          git push origin "$VERSION"
 
-          echo "✅ Created and pushed tag v$VERSION"
+          echo "✅ Created and pushed tag $VERSION"
 
       - name: Trigger publish workflow
         if: steps.check_tag.outputs.tag_exists == 'false'
@@ -83,7 +83,7 @@ jobs:
             --repo ${{ github.repository }} \
             -f version=$VERSION
 
-          echo "✅ Triggered publish workflow for v$VERSION"
+          echo "✅ Triggered publish workflow for $VERSION"
 
       - name: Create back-merge PR
         env:
@@ -142,8 +142,8 @@ jobs:
           This merge has conflicts that need to be resolved manually.
 
           ### Changes
-          - ${TYPE} v${VERSION} has been merged to master
-          - Tag v${VERSION} has been created
+          - ${TYPE} ${VERSION} has been merged to master
+          - Tag ${VERSION} has been created
           - This PR syncs ${BASE_BRANCH} with the released changes
 
           ### Steps to resolve:
@@ -163,8 +163,8 @@ jobs:
           This PR merges the changes from the ${TYPE} v${VERSION} back to the ${BASE_BRANCH} branch.
 
           ### Changes
-          - ${TYPE} v${VERSION} has been merged to master
-          - Tag v${VERSION} has been created
+          - ${TYPE} ${VERSION} has been merged to master
+          - Tag ${VERSION} has been created
           - This PR syncs ${BASE_BRANCH} with the released changes
 
           ### Auto-merge
@@ -194,12 +194,12 @@ jobs:
 
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "- **Type**: $TYPE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag**: v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Back-merge**: master → $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Publish workflow triggered for v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "1. Publish workflow triggered for $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "2. After build completes, GitHub release will be created" >> $GITHUB_STEP_SUMMARY
           echo "3. Review and merge the back-merge PR to $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY

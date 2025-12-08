@@ -6,7 +6,11 @@ plugins {
 }
 
 group = "com.github.anrwatchdog"
+<<<<<<< HEAD
 version = "2.1.0-SNAPSHOT"
+=======
+version = "2.0.1"
+>>>>>>> master
 
 android {
     namespace = "com.github.anrwatchdog"
@@ -125,6 +129,16 @@ publishing {
     }
 }
 
+// Only sign when signing properties are available (not on JitPack)
+val hasSigningKey = findProperty("signing.keyId") != null
+
 signing {
-    sign(publishing.publications["release"])
+    setRequired { false }
+    if (hasSigningKey) {
+        sign(publishing.publications["release"])
+    }
+}
+
+tasks.withType<Sign>().configureEach {
+    onlyIf { hasSigningKey }
 }

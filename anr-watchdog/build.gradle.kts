@@ -6,11 +6,7 @@ plugins {
 }
 
 group = "com.github.anrwatchdog"
-<<<<<<< HEAD
 version = "2.1.0-SNAPSHOT"
-=======
-version = "2.0.1"
->>>>>>> master
 
 android {
     namespace = "com.github.anrwatchdog"
